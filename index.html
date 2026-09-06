@@ -16,9 +16,9 @@
     body{
       margin:0;color:var(--text);font-family:Inter,Segoe UI,Arial,sans-serif;
       background:
-        radial-gradient(circle at 80% -10%,rgba(255,106,0,.20),transparent 34%),
-        radial-gradient(circle at 0% 40%,rgba(255,61,0,.08),transparent 28%),
-        var(--bg);
+        linear-gradient(rgba(4,4,4,.82),rgba(4,4,4,.92)),
+        radial-gradient(circle at 80% -10%,rgba(255,106,0,.22),transparent 34%),
+        url('https://i.imgur.com/t4MKpBn.jpeg') center/cover fixed no-repeat;
       min-height:100vh;
     }
     button,input,textarea,select{font:inherit}
@@ -32,10 +32,11 @@
     .brand{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:.08em}
     .brand small{display:block;color:#777;font-weight:700;font-size:9px;letter-spacing:.18em}
     .mark{
-      width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
-      background:linear-gradient(135deg,var(--orange),#ff3300);
-      box-shadow:0 0 35px rgba(255,106,0,.35);font-size:21px
+      width:52px;height:52px;border-radius:12px;display:grid;place-items:center;
+      background:#0b0b0b;border:1px solid #2a2a2a;
+      box-shadow:0 0 35px rgba(255,106,0,.28);overflow:hidden
     }
+    .mark img{width:100%;height:100%;object-fit:contain;padding:4px}
     .navlinks{margin-left:auto;display:flex;gap:7px;align-items:center}
     .navbtn{
       border:1px solid transparent;background:transparent;color:#aaa;
@@ -51,8 +52,8 @@
     h1 span,.accent{color:var(--orange)}
     .lead{font-size:18px;color:#aaa;line-height:1.7;max-width:680px}
     .heroCard{
-      background:linear-gradient(150deg,#171717,#0d0d0d);border:1px solid #272727;
-      border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.4)
+      background:linear-gradient(150deg,rgba(23,23,23,.94),rgba(13,13,13,.94));border:1px solid #303030;
+      border-radius:20px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.55);backdrop-filter:blur(10px)
     }
     .heroCard h3{font-size:24px;margin:6px 0 10px}
     .heroCard p{color:#999;line-height:1.6}
@@ -74,7 +75,7 @@
     .head{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:25px}
     .head h2{font-size:38px;margin:0}
     .head p{color:#888;margin:7px 0 0}
-    .panel{background:linear-gradient(155deg,#131313,#0d0d0d);border:1px solid #242424;border-radius:18px;padding:24px}
+    .panel{background:linear-gradient(155deg,rgba(19,19,19,.95),rgba(13,13,13,.94));border:1px solid #2b2b2b;border-radius:18px;padding:24px;backdrop-filter:blur(10px)}
     .formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
     .field{display:grid;gap:7px}
     .field.full{grid-column:1/-1}
@@ -90,7 +91,7 @@
     .notice.ok{border-color:#1f5d3b;background:#0f2218;color:#78e7ae}
     .notice.bad{border-color:#603030;background:#251111;color:#ff9a9a}
     .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-    .card{background:linear-gradient(145deg,#141414,#0d0d0d);border:1px solid #242424;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+    .card{background:linear-gradient(145deg,rgba(20,20,20,.95),rgba(13,13,13,.95));border:1px solid #2b2b2b;border-radius:16px;padding:20px;position:relative;overflow:hidden;backdrop-filter:blur(8px)}
     .card:before{content:"";position:absolute;top:0;left:0;bottom:0;width:3px;background:linear-gradient(var(--orange),transparent)}
     .status{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:950;letter-spacing:.1em}
     .status.ok{background:#0f2117;border:1px solid #1e5f3d;color:#63e99f}
@@ -125,7 +126,7 @@
 <header>
   <div class="wrap nav">
     <div class="brand">
-      <div class="mark">🔧</div>
+      <div class="mark"><img src="https://i.imgur.com/E7Po2LR.png" alt="Logo Bennys"></div>
       <div>BENNYS MOTOR WORKS<small>RECRUTAMENTO OFICIAL</small></div>
     </div>
     <nav class="navlinks">
