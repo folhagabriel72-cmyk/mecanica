@@ -40,7 +40,7 @@
       <div class="wrap hero">
         <div class="eyebrow">LOS SANTOS • RECRUTAMENTO OFICIAL</div>
         <h1>QUER FAZER PARTE DA <span>BENNYS?</span></h1>
-        <p class="lead">Envie seu edital pelo site, acompanhe a lista pública de aprovados e aguarde a análise da administração. Quando seu edital for aprovado, você também recebe um e-mail.</p>
+        <p class="lead">Envie seu edital pelo site, acompanhe a lista pública de aprovados e aguarde a análise da administração. O resultado fica disponível online para todos.</p>
         <div class="actions"><button class="btn primary" onclick="show('edital')">ENVIAR MEU EDITAL</button><button class="btn ghost" onclick="show('aprovados')">VER APROVADOS</button></div>
         <div class="stats"><div class="stat"><strong id="countApproved">—</strong><span>Aprovados</span></div><div class="stat"><strong>ONLINE</strong><span>Envio pelo site</span></div><div class="stat"><strong>0</strong><span>DMs do bot</span></div></div>
       </div>
@@ -58,7 +58,7 @@
               <div class="field"><label>Telefone do game</label><input class="input" name="telefoneGame" maxlength="30" required placeholder="Ex.: 555-1234" /></div>
               <div class="field"><label>Idade real</label><input class="input" type="number" name="idadeReal" min="12" max="99" required placeholder="Ex.: 18" /></div>
               <div class="field"><label>Período que joga</label><select class="select" name="periodoJoga" required><option value="">Selecione...</option><option>Manhã</option><option>Tarde</option><option>Noite</option><option>Madrugada</option><option>Tarde e noite</option><option>Noite e madrugada</option><option>Horários variados</option></select></div>
-              <div class="field full"><label>E-mail</label><input class="input" type="email" name="email" maxlength="160" required placeholder="seuemail@exemplo.com" /><span class="helper">Este e-mail será usado para avisar quando você for aprovado.</span></div>
+              <div class="field full"><label>E-mail</label><input class="input" type="email" name="email" maxlength="160" required placeholder="seuemail@exemplo.com" /><span class="helper">Seu e-mail fica registrado para contato da administração.</span></div>
               <div class="field full"><label>Por que quer entrar na Bennys?</label><textarea class="textarea" name="motivo" maxlength="3000" minlength="20" required placeholder="Conte por que você quer fazer parte da Bennys, como pretende ajudar e sua experiência..."></textarea></div>
             </div>
             <div class="formfoot"><span class="helper">Ao enviar, sua candidatura ficará pendente até um administrador analisar.</span><button id="submitEdital" class="btn primary" type="submit">ENVIAR EDITAL</button></div>
@@ -93,123 +93,786 @@
 
   <footer><div class="wrap">© Bennys Motor Works • Recrutamento e resultados</div></footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const API_BASE = window.BENNYS_API_URL || '';
+    // =========================================================
+    // SUPABASE - BENNYS
+    // =========================================================
+    const SUPABASE_URL = 'https://ratmhuyxbbajknkrzwpp.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_xT8i_h6mXBjKJz-PXUT-bw_wxpraske';
+    const ADMIN_EMAIL = 'folhagabriel72@gmail.com';
+
+    const { createClient } = window.supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+
     let approved = [];
-    let adminToken = sessionStorage.getItem('bennysAdminToken') || '';
     let adminFilter = 'pendente';
 
     const $ = (q) => document.querySelector(q);
-    const esc = (v='') => String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    const dateBR = (v) => v ? new Date(v).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '—';
+
+    const esc = (v='') =>
+      String(v).replace(
+        /[&<>"']/g,
+        m => ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[m])
+      );
+
+    const dateBR = (v) =>
+      v
+        ? new Date(v).toLocaleString(
+            'pt-BR',
+            { dateStyle:'short', timeStyle:'short' }
+          )
+        : '—';
 
     function show(id){
-      document.querySelectorAll('.section').forEach(s=>s.classList.toggle('active',s.id===id));
-      document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
-      if(id==='aprovados') loadApproved();
-      if(id==='admin') syncAdmin();
-      window.scrollTo({top:0,behavior:'smooth'});
+      document
+        .querySelectorAll('.section')
+        .forEach(
+          s => s.classList.toggle('active', s.id === id)
+        );
+
+      document
+        .querySelectorAll('[data-tab]')
+        .forEach(
+          b => b.classList.toggle('active', b.dataset.tab === id)
+        );
+
+      if(id === 'aprovados'){
+        loadApproved();
+      }
+
+      if(id === 'admin'){
+        syncAdmin();
+      }
+
+      window.scrollTo({
+        top:0,
+        behavior:'smooth'
+      });
     }
 
     function notice(el, text, type='ok'){
-      el.className=`notice show ${type}`;
-      el.textContent=text;
+      el.className = `notice show ${type}`;
+      el.textContent = text;
     }
 
-    $('#editalForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const form = e.currentTarget;
-      const btn = $('#submitEdital');
-      const n = $('#editalNotice');
-      btn.disabled = true; btn.textContent = 'ENVIANDO...'; n.className='notice';
-      const fd = new FormData(form);
-      const payload = Object.fromEntries(fd.entries());
-      payload.idadeReal = Number(payload.idadeReal);
-      try{
-        const r = await fetch(`${API_BASE}/api/edital`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-        const data = await r.json();
-        if(!r.ok) throw new Error(data.erro || 'Falha ao enviar.');
-        notice(n, data.mensagem || 'Edital enviado com sucesso!','ok');
-        form.reset();
-      }catch(err){ notice(n,err.message,'err'); }
-      finally{btn.disabled=false;btn.textContent='ENVIAR EDITAL';}
-    });
+    function clearNotice(el){
+      el.className = 'notice';
+      el.textContent = '';
+    }
+
+    // =========================================================
+    // ENVIAR EDITAL
+    // =========================================================
+
+    $('#editalForm').addEventListener(
+      'submit',
+      async (e) => {
+
+        e.preventDefault();
+
+        const form = e.currentTarget;
+        const btn = $('#submitEdital');
+        const n = $('#editalNotice');
+
+        btn.disabled = true;
+        btn.textContent = 'ENVIANDO...';
+        clearNotice(n);
+
+        const fd = new FormData(form);
+
+        const payload = {
+          nome:
+            String(fd.get('nome') || '').trim(),
+
+          sobrenome:
+            String(fd.get('sobrenome') || '').trim(),
+
+          id_game:
+            String(fd.get('idIg') || '').trim(),
+
+          telefone_game:
+            String(fd.get('telefoneGame') || '').trim(),
+
+          idade_real:
+            Number(fd.get('idadeReal')),
+
+          periodo_joga:
+            String(fd.get('periodoJoga') || '').trim(),
+
+          email:
+            String(fd.get('email') || '')
+              .trim()
+              .toLowerCase(),
+
+          motivo:
+            String(fd.get('motivo') || '').trim(),
+
+          status:
+            'pendente'
+        };
+
+        try {
+
+          if(
+            !payload.nome ||
+            !payload.sobrenome ||
+            !payload.id_game ||
+            !payload.telefone_game ||
+            !payload.idade_real ||
+            !payload.periodo_joga ||
+            !payload.email ||
+            !payload.motivo
+          ){
+            throw new Error(
+              'Preencha todos os campos.'
+            );
+          }
+
+          if(
+            payload.idade_real < 12 ||
+            payload.idade_real > 99
+          ){
+            throw new Error(
+              'Informe uma idade válida.'
+            );
+          }
+
+          if(payload.motivo.length < 20){
+            throw new Error(
+              'Explique um pouco melhor por que quer entrar na Bennys.'
+            );
+          }
+
+          const { error } =
+            await supabaseClient
+              .from('candidaturas')
+              .insert(payload);
+
+          if(error){
+            throw error;
+          }
+
+          notice(
+            n,
+            '✅ Edital enviado com sucesso! Agora aguarde a análise da administração.',
+            'ok'
+          );
+
+          form.reset();
+
+        } catch(err){
+
+          console.error(
+            'Erro ao enviar edital:',
+            err
+          );
+
+          notice(
+            n,
+            err.message ||
+              'Não foi possível enviar o edital.',
+            'err'
+          );
+
+        } finally {
+
+          btn.disabled = false;
+          btn.textContent = 'ENVIAR EDITAL';
+
+        }
+      }
+    );
+
+    // =========================================================
+    // APROVADOS - LISTA PÚBLICA
+    // =========================================================
 
     async function loadApproved(){
-      const list=$('#approvedList'); list.innerHTML='<div class="loading">Carregando aprovados...</div>';
-      try{
-        const r=await fetch(`${API_BASE}/api/aprovados`,{cache:'no-store'}); const data=await r.json();
-        if(!r.ok) throw new Error(data.erro || 'API indisponível');
-        approved=Array.isArray(data.aprovados)?data.aprovados:[];
-        $('#countApproved').textContent=approved.length;
+
+      const list = $('#approvedList');
+
+      list.innerHTML =
+        '<div class="loading">Carregando aprovados...</div>';
+
+      try {
+
+        const { data, error } =
+          await supabaseClient.rpc(
+            'listar_aprovados'
+          );
+
+        if(error){
+          throw error;
+        }
+
+        approved = Array.isArray(data)
+          ? data.map(p => ({
+              id: p.id,
+              nome: p.nome,
+              sobrenome: p.sobrenome,
+              idIngame: p.id_game,
+              dataAprovacao:
+                p.data_decisao
+            }))
+          : [];
+
+        $('#countApproved').textContent =
+          approved.length;
+
         renderApproved();
-      }catch(err){list.innerHTML=`<div class="empty">${esc(err.message)}</div>`;$('#countApproved').textContent='—';}
+
+      } catch(err){
+
+        console.error(
+          'Erro ao carregar aprovados:',
+          err
+        );
+
+        list.innerHTML =
+          `<div class="empty">${esc(
+            err.message ||
+            'Não foi possível carregar os aprovados.'
+          )}</div>`;
+
+        $('#countApproved').textContent =
+          '—';
+      }
     }
 
     function renderApproved(){
-      const q=($('#approvedSearch')?.value||'').toLowerCase().trim();
-      const items=approved.filter(p=>`${p.nome} ${p.sobrenome} ${p.idIngame}`.toLowerCase().includes(q));
-      const list=$('#approvedList');
-      if(!items.length){list.innerHTML='<div class="empty">Nenhum aprovado encontrado.</div>';return;}
-      list.innerHTML=items.map(p=>`<article class="card"><span class="status approved"><span class="dot"></span> APROVADO</span><div class="person">${esc(p.nome)} ${esc(p.sobrenome)}</div><div class="chips"><span class="chip">ID ${esc(p.idIngame)}</span><span class="chip">BENNYS</span></div><div class="date">Aprovado em ${esc(dateBR(p.dataAprovacao))}</div></article>`).join('');
+
+      const q =
+        ($('#approvedSearch')?.value || '')
+          .toLowerCase()
+          .trim();
+
+      const items =
+        approved.filter(
+          p =>
+            `${p.nome} ${p.sobrenome} ${p.idIngame}`
+              .toLowerCase()
+              .includes(q)
+        );
+
+      const list =
+        $('#approvedList');
+
+      if(!items.length){
+
+        list.innerHTML =
+          '<div class="empty">Nenhum aprovado encontrado.</div>';
+
+        return;
+      }
+
+      list.innerHTML =
+        items.map(
+          p => `
+            <article class="card">
+              <span class="status approved">
+                <span class="dot"></span>
+                APROVADO
+              </span>
+
+              <div class="person">
+                ${esc(p.nome)}
+                ${esc(p.sobrenome)}
+              </div>
+
+              <div class="chips">
+                <span class="chip">
+                  ID ${esc(p.idIngame)}
+                </span>
+
+                <span class="chip">
+                  BENNYS
+                </span>
+              </div>
+
+              <div class="date">
+                Aprovado em
+                ${esc(dateBR(p.dataAprovacao))}
+              </div>
+            </article>
+          `
+        ).join('');
     }
 
-    $('#loginForm').addEventListener('submit',async(e)=>{
-      e.preventDefault(); const n=$('#loginNotice'); n.className='notice';
-      try{
-        const r=await fetch(`${API_BASE}/api/admin/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:$('#adminPassword').value})});
-        const data=await r.json(); if(!r.ok) throw new Error(data.erro||'Não foi possível entrar.');
-        adminToken=data.token;sessionStorage.setItem('bennysAdminToken',adminToken);$('#adminPassword').value='';syncAdmin();
-      }catch(err){notice(n,err.message,'err');}
-    });
+    // =========================================================
+    // LOGIN ADMIN - SUPABASE AUTH
+    // =========================================================
 
-    function syncAdmin(){
-      $('#adminLogin').style.display=adminToken?'none':'block';
-      $('#adminPanel').style.display=adminToken?'block':'none';
-      if(adminToken) loadAdmin();
+    $('#loginForm').addEventListener(
+      'submit',
+      async (e) => {
+
+        e.preventDefault();
+
+        const n =
+          $('#loginNotice');
+
+        clearNotice(n);
+
+        const password =
+          $('#adminPassword').value;
+
+        try {
+
+          const { data, error } =
+            await supabaseClient.auth
+              .signInWithPassword({
+                email: ADMIN_EMAIL,
+                password
+              });
+
+          if(error){
+            throw new Error(
+              'Senha incorreta ou acesso não autorizado.'
+            );
+          }
+
+          if(
+            !data.user ||
+            (
+              data.user.email || ''
+            ).toLowerCase() !==
+              ADMIN_EMAIL.toLowerCase()
+          ){
+
+            await supabaseClient.auth
+              .signOut();
+
+            throw new Error(
+              'Este usuário não possui acesso ao painel.'
+            );
+          }
+
+          $('#adminPassword').value =
+            '';
+
+          await syncAdmin();
+
+        } catch(err){
+
+          notice(
+            n,
+            err.message ||
+              'Não foi possível entrar.',
+            'err'
+          );
+        }
+      }
+    );
+
+    async function getAdminSession(){
+
+      const {
+        data: { session }
+      } =
+        await supabaseClient.auth
+          .getSession();
+
+      if(
+        !session ||
+        !session.user ||
+        (
+          session.user.email || ''
+        ).toLowerCase() !==
+          ADMIN_EMAIL.toLowerCase()
+      ){
+        return null;
+      }
+
+      return session;
     }
 
-    function logoutAdmin(){adminToken='';sessionStorage.removeItem('bennysAdminToken');syncAdmin();}
-    function setAdminFilter(value){adminFilter=value;document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b.dataset.filter===value));loadAdmin();}
+    async function syncAdmin(){
 
-    async function adminFetch(url,options={}){
-      options.headers={...(options.headers||{}),Authorization:`Bearer ${adminToken}`};
-      const r=await fetch(`${API_BASE}${url}`,options); const data=await r.json();
-      if(r.status===401){logoutAdmin();throw new Error('Sua sessão expirou. Entre novamente.');}
-      if(!r.ok) throw new Error(data.erro||'Erro no painel.'); return data;
+      const session =
+        await getAdminSession();
+
+      $('#adminLogin').style.display =
+        session
+          ? 'none'
+          : 'block';
+
+      $('#adminPanel').style.display =
+        session
+          ? 'block'
+          : 'none';
+
+      if(session){
+        await loadAdmin();
+      }
     }
+
+    async function logoutAdmin(){
+
+      await supabaseClient.auth
+        .signOut();
+
+      clearNotice(
+        $('#adminNotice')
+      );
+
+      await syncAdmin();
+    }
+
+    function setAdminFilter(value){
+
+      adminFilter = value;
+
+      document
+        .querySelectorAll('[data-filter]')
+        .forEach(
+          b =>
+            b.classList.toggle(
+              'active',
+              b.dataset.filter === value
+            )
+        );
+
+      loadAdmin();
+    }
+
+    // =========================================================
+    // ADMIN - CARREGAR CANDIDATURAS
+    // =========================================================
 
     async function loadAdmin(){
-      const list=$('#adminList'); const n=$('#adminNotice'); n.className='notice'; list.innerHTML='<div class="loading">Carregando candidaturas...</div>';
-      try{
-        const data=await adminFetch(`/api/admin/candidaturas?status=${encodeURIComponent(adminFilter)}`);
-        renderAdmin(data.candidaturas||[]);
-      }catch(err){list.innerHTML=`<div class="empty">${esc(err.message)}</div>`;}
+
+      const list =
+        $('#adminList');
+
+      const n =
+        $('#adminNotice');
+
+      clearNotice(n);
+
+      list.innerHTML =
+        '<div class="loading">Carregando candidaturas...</div>';
+
+      try {
+
+        const session =
+          await getAdminSession();
+
+        if(!session){
+          throw new Error(
+            'Sua sessão expirou. Entre novamente.'
+          );
+        }
+
+        const { data, error } =
+          await supabaseClient
+            .from('candidaturas')
+            .select(`
+              id,
+              nome,
+              sobrenome,
+              id_game,
+              telefone_game,
+              idade_real,
+              periodo_joga,
+              motivo,
+              email,
+              status,
+              data_envio,
+              data_decisao
+            `)
+            .eq('status', adminFilter)
+            .order(
+              'data_envio',
+              { ascending: true }
+            );
+
+        if(error){
+          throw error;
+        }
+
+        renderAdmin(
+          data || []
+        );
+
+      } catch(err){
+
+        console.error(
+          'Erro no painel:',
+          err
+        );
+
+        list.innerHTML =
+          `<div class="empty">${esc(
+            err.message ||
+              'Erro ao carregar candidaturas.'
+          )}</div>`;
+
+        if(
+          String(err.message || '')
+            .toLowerCase()
+            .includes('sessão')
+        ){
+          await supabaseClient.auth
+            .signOut();
+
+          await syncAdmin();
+        }
+      }
     }
 
     function renderAdmin(items){
-      const list=$('#adminList');
-      if(!items.length){list.innerHTML='<div class="empty">Nenhuma candidatura nesta categoria.</div>';return;}
-      list.innerHTML=items.map(c=>`<article class="candidate"><div class="candidateHead"><div><span class="status ${c.status==='aprovado'?'approved':c.status==='reprovado'?'rejected':'pending'}"><span class="dot"></span>${esc(c.status.toUpperCase())}</span><h3 style="margin-top:10px">${esc(c.nome)} ${esc(c.sobrenome)}</h3></div><span class="date">Enviado em ${esc(dateBR(c.data_envio))}</span></div><div class="candidateMeta"><div class="metaBox"><small>ID do game</small>${esc(c.id_ig)}</div><div class="metaBox"><small>Telefone do game</small>${esc(c.telefone_game)}</div><div class="metaBox"><small>Idade real</small>${esc(c.idade_real)}</div><div class="metaBox"><small>Período</small>${esc(c.periodo_joga)}</div><div class="metaBox" style="grid-column:1/-1"><small>E-mail</small>${esc(c.email)}</div></div><div class="reason"><strong>Por que quer entrar:</strong>\n${esc(c.motivo)}</div>${c.status==='pendente'?`<div class="candidateActions"><button class="btn ok sm" onclick="decide(${Number(c.id)},'aprovar')">✅ APROVAR</button><button class="btn danger sm" onclick="decide(${Number(c.id)},'reprovar')">✕ REPROVAR</button></div>`:''}</article>`).join('');
+
+      const list =
+        $('#adminList');
+
+      if(!items.length){
+
+        list.innerHTML =
+          '<div class="empty">Nenhuma candidatura nesta categoria.</div>';
+
+        return;
+      }
+
+      list.innerHTML =
+        items.map(
+          c => `
+            <article class="candidate">
+
+              <div class="candidateHead">
+                <div>
+
+                  <span class="status ${
+                    c.status === 'aprovado'
+                      ? 'approved'
+                      : c.status === 'reprovado'
+                        ? 'rejected'
+                        : 'pending'
+                  }">
+
+                    <span class="dot"></span>
+
+                    ${esc(
+                      String(c.status)
+                        .toUpperCase()
+                    )}
+                  </span>
+
+                  <h3 style="margin-top:10px">
+                    ${esc(c.nome)}
+                    ${esc(c.sobrenome)}
+                  </h3>
+
+                </div>
+
+                <span class="date">
+                  Enviado em
+                  ${esc(
+                    dateBR(c.data_envio)
+                  )}
+                </span>
+              </div>
+
+              <div class="candidateMeta">
+
+                <div class="metaBox">
+                  <small>ID do game</small>
+                  ${esc(c.id_game)}
+                </div>
+
+                <div class="metaBox">
+                  <small>Telefone do game</small>
+                  ${esc(c.telefone_game)}
+                </div>
+
+                <div class="metaBox">
+                  <small>Idade real</small>
+                  ${esc(c.idade_real)}
+                </div>
+
+                <div class="metaBox">
+                  <small>Período</small>
+                  ${esc(c.periodo_joga)}
+                </div>
+
+                <div
+                  class="metaBox"
+                  style="grid-column:1/-1"
+                >
+                  <small>E-mail</small>
+                  ${esc(c.email)}
+                </div>
+
+              </div>
+
+              <div class="reason">
+                <strong>
+                  Por que quer entrar:
+                </strong>
+                <br>
+                ${esc(c.motivo)}
+              </div>
+
+              ${
+                c.status === 'pendente'
+                  ? `
+                    <div class="candidateActions">
+
+                      <button
+                        class="btn ok sm"
+                        onclick="decide(${Number(c.id)},'aprovar')"
+                      >
+                        ✅ APROVAR
+                      </button>
+
+                      <button
+                        class="btn danger sm"
+                        onclick="decide(${Number(c.id)},'reprovar')"
+                      >
+                        ✕ REPROVAR
+                      </button>
+
+                    </div>
+                  `
+                  : ''
+              }
+
+            </article>
+          `
+        ).join('');
     }
 
-    async function decide(id,action){
-      const phrase=action==='aprovar'?'aprovar esta pessoa':'reprovar esta candidatura';
-      if(!confirm(`Tem certeza que deseja ${phrase}?`)) return;
-      const n=$('#adminNotice'); n.className='notice';
-      try{
-        const data=await adminFetch(`/api/admin/candidaturas/${id}/${action}`,{method:'POST'});
-        if(action==='aprovar'){
-          if(data.emailEnviado) notice(n,'Pessoa aprovada, publicada na aba Aprovados e e-mail enviado.','ok');
-          else notice(n,`Pessoa aprovada e publicada. ${data.avisoEmail||'O e-mail não foi enviado.'}`,'warn');
+    // =========================================================
+    // ADMIN - APROVAR / REPROVAR
+    // =========================================================
+
+    async function decide(id, action){
+
+      const aprovar =
+        action === 'aprovar';
+
+      const phrase =
+        aprovar
+          ? 'aprovar esta pessoa'
+          : 'reprovar esta candidatura';
+
+      if(
+        !confirm(
+          `Tem certeza que deseja ${phrase}?`
+        )
+      ){
+        return;
+      }
+
+      const n =
+        $('#adminNotice');
+
+      clearNotice(n);
+
+      try {
+
+        const session =
+          await getAdminSession();
+
+        if(!session){
+          throw new Error(
+            'Sua sessão expirou. Entre novamente.'
+          );
+        }
+
+        const novoStatus =
+          aprovar
+            ? 'aprovado'
+            : 'reprovado';
+
+        const { data, error } =
+          await supabaseClient
+            .from('candidaturas')
+            .update({
+              status:
+                novoStatus,
+
+              data_decisao:
+                new Date()
+                  .toISOString()
+            })
+            .eq('id', id)
+            .eq(
+              'status',
+              'pendente'
+            )
+            .select('id');
+
+        if(error){
+          throw error;
+        }
+
+        if(!data || !data.length){
+          throw new Error(
+            'Essa candidatura já foi analisada ou não foi encontrada.'
+          );
+        }
+
+        if(aprovar){
+
+          notice(
+            n,
+            '✅ Pessoa aprovada e publicada na aba Aprovados.',
+            'ok'
+          );
+
           await loadApproved();
-        }else notice(n,'Candidatura reprovada.','ok');
+
+        } else {
+
+          notice(
+            n,
+            'Candidatura reprovada.',
+            'ok'
+          );
+        }
+
         await loadAdmin();
-      }catch(err){notice(n,err.message,'err');}
+
+      } catch(err){
+
+        console.error(
+          'Erro na decisão:',
+          err
+        );
+
+        notice(
+          n,
+          err.message ||
+            'Não foi possível atualizar a candidatura.',
+          'err'
+        );
+      }
     }
 
+    // Mantém o painel sincronizado quando a sessão muda.
+    supabaseClient.auth.onAuthStateChange(
+      () => {
+        if(
+          document
+            .getElementById('admin')
+            .classList.contains('active')
+        ){
+          syncAdmin();
+        }
+      }
+    );
+
+    // Inicialização
     loadApproved();
     syncAdmin();
   </script>
+
 </body>
 </html>
